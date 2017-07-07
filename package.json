@@ -1,0 +1,17 @@
+{
+  "name": "mauth",
+  "version": "0.1.0",
+  "description": "Macaroon-based authorization middleware for Express",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "macaroons",
+    "auth",
+    "middleware",
+    "express"
+  ],
+  "author": "Akram Shehadi",
+  "license": "BSD-3-Clause"
+}
