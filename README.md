@@ -194,3 +194,7 @@ In a typical login system, you will have something like this:
 That's it. One line (plus an optional calculation step for the secret, which can be replaced for whatever other function we want) and we generate the necessary proof-of-authorization pieces to access a restricted API protected by the mAuth verifier module.
 
 Simple!, right?
+<<<<<<< HEAD
+=======
+
+>>>>>>> 6167a2ab474ebb606fd3882b1a23f5638735e881
