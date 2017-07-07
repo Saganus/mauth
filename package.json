@@ -1,10 +1,10 @@
 {
   "name": "mauth",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Macaroon-based authorization middleware for Express",
-  "repository" : { 
-    "type" : "git", 
-    "url" : "https://github.com/Saganus/mauth"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Saganus/mauth"
   },
   "main": "index.js",
   "scripts": {
