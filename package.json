@@ -1,6 +1,6 @@
 {
   "name": "mauth",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Macaroon-based authorization middleware for Express",
   "repository": {
     "type": "git",
