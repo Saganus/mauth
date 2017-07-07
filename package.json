@@ -17,5 +17,8 @@
     "express"
   ],
   "author": "Akram Shehadi",
-  "license": "BSD-3-Clause"
+  "license": "BSD-3-Clause",
+  "dependencies": {
+    "macaroons.js": "^0.3.8"
+  }
 }
