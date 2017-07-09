@@ -65,6 +65,12 @@ function mintRestrictedMacaroon(serverMacaroon, method, scopes, location){
     return restrictedMacaroon.serialize();
 }
 
+function addFirstPartyCaveat(macaroon, caveatName, caveatValue){
+    return MacaroonsBuilder.modify(macaroon)
+        .add_first_party_caveat(caveatName + "=" + caveatValue);
+        .getMacaroon();
+}
+
 function addDisjunctionCaveat(macaroon, location, caveatKey, identifier){
     return MacaroonsBuilder.modify(macaroon)
         .add_third_party_caveat(location, caveatKey, identifier)
@@ -74,24 +80,18 @@ function addDisjunctionCaveat(macaroon, location, caveatKey, identifier){
 function addScopesToMacaroon(macaroon, scopes){
     scopeCaveat = scopes.join(",");
     
-    return MacaroonsBuilder.modify(macaroon)
-        .add_first_party_caveat("routes="+scopeCaveat)
-        .getMacaroon();
+    return addFirstPartyCaveat("routes", scopeCaveat);
 };
 
 function addMethodToMacaroon(macaroon, method){
-    return MacaroonsBuilder.modify(macaroon)
-        .add_first_party_caveat("method="+method)
-        .getMacaroon();
+    return addFirstPartyCaveat("method", method);
 };
 
 function addTimeExpirationToMacaroon(macaroon, minutesFromNow){
     var expiration  = new Date();
     expiration      = new Date(expiration.getTime() + (minutesFromNow * 60 * 1000));
 
-    return MacaroonsBuilder.modify(macaroon)
-        .add_first_party_caveat("time < "+ expiration.toJSON().toString())
-        .getMacaroon();
+    return addFirstPartyCaveat("time < ", expiration.toJSON().toString());
 };  
 
 function calculateMacaroonSecret(macaroonUserSecret){
