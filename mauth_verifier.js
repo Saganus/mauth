@@ -38,7 +38,6 @@ module.exports = function(options) {
         }else{
             //Allow only access to public scope
             if(typeof publicScope !== "undefined" && typeof publicScope[req.method] !== "undefined" && publicScope[req.method].indexOf(req.path) > -1){
-                console.log("No macaroon secret found but allowing access to public scope");
                 next();
             }
             else{
