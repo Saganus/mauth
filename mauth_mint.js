@@ -54,8 +54,6 @@ function mintMacaroons(mintPolicy, location, macaroonSecret, identifier){
             authMacaroons[pmCaveat.requestMethod] = methodMacaroon.serialize();
         });
     };
-
-    console.log(authMacaroons);
     return authMacaroons;
 };
 
