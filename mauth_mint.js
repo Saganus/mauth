@@ -6,28 +6,103 @@ var macaroonServerSecret    = process.env.MACAROON_SERVER_SECRET;
 
 var _ = require('lodash');
 
+var requestMethodCaveatName = "requestMethod";
+var expiresCaveatName       = "expires";
+
 //var caveatKey         = "secret2";
 //var caveatId          = "random2-32"
 
 // in minutes from now
-var defaultExpiration   = 5; 
+var defaultExpiration       = 5; 
 
-function mintMacaroons(userPolicy, location, macaroonSecret, identifier){
-    var macaroonScopes  = getMacaroonScopes(userPolicy);
+function mintMacaroons(mintPolicy, location, macaroonSecret, identifier){
+    //var macaroonScopes  = getMacaroonScopes(userPolicy);
+    var authMacaroons       = {};
 
-    var serverMacaroon  = MacaroonsBuilder.create(location, macaroonSecret, identifier);
-    serverMacaroon      = MacaroonsBuilder.modify(serverMacaroon).add_first_party_caveat("server-id="+userPolicy.serverId).getMacaroon();
+    var rootMacaroon        = MacaroonsBuilder.create(location, macaroonSecret, identifier);
 
-    var authMacaroons   = {};
+    //console.log(mintPolicy);
+    var baseCaveats         = mintPolicy.baseCaveats;
+    if(typeof baseCaveats !== "undefined" && baseCaveats.length > 0){
+        baseCaveats.forEach(function(baseCaveat){
+            if(baseCaveat.name == expiresCaveatName){
+                rootMacaroon = addTimeExpirationToMacaroon(rootMacaroon, baseCaveat.value);
+            }
+            else{
+                rootMacaroon = addFirstPartyCaveat(rootMacaroon, baseCaveat.name, baseCaveat.value);    
+            }
+        });
+    }
 
-    Object.keys(macaroonScopes).forEach(function(key, index){
-        if (macaroonScopes[key].length > 0){
-            authMacaroons[key] = mintRestrictedMacaroon(serverMacaroon, key, macaroonScopes[key], location);
-        }
+    var firstPartyCaveats   = mintPolicy.firstPartyCaveats;
+    if(typeof firstPartyCaveats !== "undefined" && firstPartyCaveats.length > 0){
+        firstPartyCaveats.forEach(function(fpCaveat){
+            rootMacaroon = addFirstPartyCaveat(rootMacaroon, fpCaveat.name, fpCaveat.value);
+        })
+    }
 
-    });
+    var perMethodCaveats    = mintPolicy.perMethodCaveats;
+    if(typeof perMethodCaveats !== "undefined" && perMethodCaveats.length > 0){
+        perMethodCaveats.forEach(function(pmCaveat){
+            var caveats = pmCaveat.caveats;
 
+            var methodMacaroon = addFirstPartyCaveat(rootMacaroon, requestMethodCaveatName, pmCaveat.requestMethod);    
+            caveats.forEach(function(caveat, index, array){
+                methodMacaroon = addFirstPartyCaveat(methodMacaroon, caveat.name, caveat.value);
+                
+            });
+            authMacaroons[pmCaveat.requestMethod] = methodMacaroon.serialize();
+        });
+    };
+
+    console.log(authMacaroons);
     return authMacaroons;
+};
+
+function addFirstPartyCaveat(macaroon, caveatName, caveatValue){
+    return MacaroonsBuilder.modify(macaroon)
+        .add_first_party_caveat(caveatName + "=" + caveatValue)
+        .getMacaroon();
+};
+
+function addDisjunctionCaveat(macaroon, location, caveatKey, identifier){
+    return MacaroonsBuilder.modify(macaroon)
+        .add_third_party_caveat(location, caveatKey, identifier)
+        .getMacaroon();
+};
+
+function addTimeExpirationToMacaroon(macaroon, minutesFromNow){
+    var expiration  = new Date();
+    expiration      = new Date(expiration.getTime() + (minutesFromNow * 60 * 1000));
+
+    return addFirstPartyCaveat(macaroon, "time < ", expiration.toJSON().toString());
+};  
+
+function calculateMacaroonSecret(macaroonUserSecret){
+    const hash = crypto.createHash('sha256');
+    hash.update(macaroonServerSecret + macaroonUserSecret);
+    var macaroonSecretHash = hash.digest("hex");
+    var macaroonSecret = Buffer.from(macaroonSecretHash, "hex"); 
+
+    return macaroonSecret;
+};
+
+
+module.exports = {
+    mintMacaroons : mintMacaroons,
+    calculateMacaroonSecret : calculateMacaroonSecret
+};
+
+/*
+
+function addScopesToMacaroon(macaroon, scopes){
+    scopeCaveat = scopes.join(",");
+    
+    return addFirstPartyCaveat("routes", scopeCaveat);
+};
+
+function addMethodToMacaroon(macaroon, method){
+    return addFirstPartyCaveat("method", method);
 };
 
 function getMacaroonScopes(userPolicy){
@@ -64,47 +139,6 @@ function mintRestrictedMacaroon(serverMacaroon, method, scopes, location){
     //restrictedMacaroon = addDisjunctionCaveat(restrictedMacaroon, location, caveatKey, caveatId);
     return restrictedMacaroon.serialize();
 }
-
-function addFirstPartyCaveat(macaroon, caveatName, caveatValue){
-    return MacaroonsBuilder.modify(macaroon)
-        .add_first_party_caveat(caveatName + "=" + caveatValue);
-        .getMacaroon();
-}
-
-function addDisjunctionCaveat(macaroon, location, caveatKey, identifier){
-    return MacaroonsBuilder.modify(macaroon)
-        .add_third_party_caveat(location, caveatKey, identifier)
-        .getMacaroon();
-};
-
-function addScopesToMacaroon(macaroon, scopes){
-    scopeCaveat = scopes.join(",");
-    
-    return addFirstPartyCaveat("routes", scopeCaveat);
-};
-
-function addMethodToMacaroon(macaroon, method){
-    return addFirstPartyCaveat("method", method);
-};
-
-function addTimeExpirationToMacaroon(macaroon, minutesFromNow){
-    var expiration  = new Date();
-    expiration      = new Date(expiration.getTime() + (minutesFromNow * 60 * 1000));
-
-    return addFirstPartyCaveat("time < ", expiration.toJSON().toString());
-};  
-
-function calculateMacaroonSecret(macaroonUserSecret){
-    const hash = crypto.createHash('sha256');
-    hash.update(macaroonServerSecret + macaroonUserSecret);
-    var macaroonSecretHash = hash.digest("hex");
-    var macaroonSecret = Buffer.from(macaroonSecretHash, "hex"); 
-
-    return macaroonSecret;
-};
+*/
 
 
-module.exports = {
-    mintMacaroons : mintMacaroons,
-    calculateMacaroonSecret : calculateMacaroonSecret
-};
