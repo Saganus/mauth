@@ -18,20 +18,16 @@ module.exports = function(options) {
         var serializedMacaroons = req.serializedMacaroons;
         var macaroonSecret      = req.macaroonSecret;
         var verifierPolicy      = req.verifierPolicy;
-        console.log("verifyMacaroons");
 
         if(typeof macaroonSecret !== "undefined" && macaroonSecret !== null
             && typeof serializedMacaroons[req.method] !== "undefined" && serializedMacaroons[req.method] !== ""){
-            console.log("validating request:");
 
             validateRequest(publicScope, verifierPolicy, satisfierFunctions, serializedMacaroons[req.method], macaroonSecret, req.method, req.path)
                 .then(function(isValid){
                     if(isValid){
-                        console.log("valid request, calling next");
                         next();
                     }
                     else{
-                        console.log("validateRequest not valid");
                         res.sendStatus("401");
                     }
                 }).catch(function (error) {
@@ -82,8 +78,7 @@ function validateRequest(publicScope, verifierPolicy, satisfierFunctions, serial
                         var satisfierParams = {
                             path: path
                         }
-                        console.log("satisfierParams");
-                        console.log(satisfierParams);
+   
                         var satisfierFunction = customFunctions[satisfier.name](satisfierParams);
                         verifier = addGeneralSatisfier(verifier, satisfierFunction);
                     }
