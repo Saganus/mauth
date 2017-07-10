@@ -4,6 +4,7 @@ var MacaroonsVerifier       = require("macaroons.js").MacaroonsVerifier;
 var TimestampCaveatVerifier = require('macaroons.js').verifier.TimestampCaveatVerifier;
 
 var location                = "http://www.endofgreatness.net";
+var timeCaveatName          = "time";
 var routesCaveatRegex       = /routes=(.*)/;
 
 //var caveatKey           = "secret2";
@@ -11,18 +12,26 @@ var routesCaveatRegex       = /routes=(.*)/;
 
 module.exports = function(options) {
     return function verifyMacaroons(req, res, next) {
-        var serverId            = options.serverId;
         var publicScope         = options.publicScope;
-        var serializedMacaroon  = req.cookies[serverId + "/" + req.method];
+        var satisfierFunctions  = options.satisfierFunctions;
+
+        var serializedMacaroons = req.serializedMacaroons;
         var macaroonSecret      = req.macaroonSecret;
-        
-        if(typeof macaroonSecret !== "undefined" && macaroonSecret !== null){
-            validateRequest(publicScope, serverId, serializedMacaroon, macaroonSecret, req.method, req.path)
+        var verifierPolicy      = req.verifierPolicy;
+        console.log("verifyMacaroons");
+
+        if(typeof macaroonSecret !== "undefined" && macaroonSecret !== null
+            && typeof serializedMacaroons[req.method] !== "undefined" && serializedMacaroons[req.method] !== ""){
+            console.log("validating request:");
+
+            validateRequest(publicScope, verifierPolicy, satisfierFunctions, serializedMacaroons[req.method], macaroonSecret, req.method, req.path)
                 .then(function(isValid){
                     if(isValid){
+                        console.log("valid request, calling next");
                         next();
                     }
                     else{
+                        console.log("validateRequest not valid");
                         res.sendStatus("401");
                     }
                 }).catch(function (error) {
@@ -41,41 +50,46 @@ module.exports = function(options) {
                 res.sendStatus("401");
             }
         }
-
     };
 };
 
-function validateRequest(publicScope, serverId, serializedMacaroon, macaroonSecret, method, path){
+function validateRequest(publicScope, verifierPolicy, satisfierFunctions, serializedMacaroon, macaroonSecret, method, path){
     return new Promise((resolve, reject) => {
         if(typeof publicScope !== "undefined" && typeof publicScope[method] !== "undefined" && publicScope[method].indexOf(path) > -1){
             return resolve(true);
         }
-        else if(typeof serializedMacaroon !== "undefined" && serializedMacaroon !== ""){
+        else if(typeof serializedMacaroon !== "undefined" && serializedMacaroon !== "" 
+            && typeof verifierPolicy !== "undefined" && verifierPolicy !== null){
             macaroon = MacaroonsBuilder.deserialize(serializedMacaroon);
-
+ 
             var verifier = new MacaroonsVerifier(macaroon);
 
-            verifier.satisfyExact("server-id="+serverId);
-            verifier.satisfyExact("method="+method);
-            verifier.satisfyExact("route="+path);
+            var exactSatisfiers = verifierPolicy.satisfyExact;
+            if(typeof exactSatisfiers !== "undefined" && exactSatisfiers.length > 0){
+                exactSatisfiers.forEach(function(satisfier){
+                    verifier = addExactSatisfier(verifier, satisfier.name, satisfier.value);
+                });
+            }
+            var customFunctions = satisfierFunctions;
+            var generalSatisfiers = verifierPolicy.satisfyGeneral;
+            if(typeof generalSatisfiers !== "undefined" && generalSatisfiers.length > 0){
+                generalSatisfiers.forEach(function(satisfier){
 
-            verifier.satisfyGeneral(TimestampCaveatVerifier);
-            verifier.satisfyGeneral(function RouteCaveatVerifier(caveat) {
-                var match = routesCaveatRegex.exec(caveat);
-                if (match !== null) {
-                    var parsedRoutes = match[1].split(",");
-                    
-                    if(parsedRoutes.indexOf(path) > -1){
-                        return true;
+                    if(satisfier.name == timeCaveatName){
+                        verifier.satisfyGeneral(TimestampCaveatVerifier);
                     }
                     else{
-                        return false;
+                        var satisfierParams = {
+                            path: path
+                        }
+                        console.log("satisfierParams");
+                        console.log(satisfierParams);
+                        var satisfierFunction = customFunctions[satisfier.name](satisfierParams);
+                        verifier = addGeneralSatisfier(verifier, satisfierFunction);
                     }
-                }
-                else{
-                    return false;
-                }
-            });
+                });
+                
+            }
 
             if(verifier.isValid(macaroonSecret)){
                 return resolve(true);
@@ -91,6 +105,16 @@ function validateRequest(publicScope, serverId, serializedMacaroon, macaroonSecr
             return resolve(false);
         }
     });  
+};
+
+function addExactSatisfier(verifier, satisfierName, satisfierValue){
+    verifier.satisfyExact(satisfierName + "=" + satisfierValue);
+    return verifier
+};
+
+function addGeneralSatisfier(verifier, satisfierFunction, caveatRegex){
+    verifier.satisfyGeneral(satisfierFunction);
+    return verifier
 };
 
 /*

@@ -18,10 +18,8 @@ var defaultExpiration       = 5;
 function mintMacaroons(mintPolicy, location, macaroonSecret, identifier){
     //var macaroonScopes  = getMacaroonScopes(userPolicy);
     var authMacaroons       = {};
-
     var rootMacaroon        = MacaroonsBuilder.create(location, macaroonSecret, identifier);
 
-    //console.log(mintPolicy);
     var baseCaveats         = mintPolicy.baseCaveats;
     if(typeof baseCaveats !== "undefined" && baseCaveats.length > 0){
         baseCaveats.forEach(function(baseCaveat){
@@ -47,13 +45,14 @@ function mintMacaroons(mintPolicy, location, macaroonSecret, identifier){
             var caveats = pmCaveat.caveats;
 
             var methodMacaroon = addFirstPartyCaveat(rootMacaroon, requestMethodCaveatName, pmCaveat.requestMethod);    
-            caveats.forEach(function(caveat, index, array){
+            caveats.forEach(function(caveat){
                 methodMacaroon = addFirstPartyCaveat(methodMacaroon, caveat.name, caveat.value);
                 
             });
             authMacaroons[pmCaveat.requestMethod] = methodMacaroon.serialize();
         });
     };
+
     return authMacaroons;
 };
 
@@ -73,7 +72,9 @@ function addTimeExpirationToMacaroon(macaroon, minutesFromNow){
     var expiration  = new Date();
     expiration      = new Date(expiration.getTime() + (minutesFromNow * 60 * 1000));
 
-    return addFirstPartyCaveat(macaroon, "time < ", expiration.toJSON().toString());
+    return MacaroonsBuilder.modify(macaroon)
+        .add_first_party_caveat("time < " + expiration.toJSON().toString())
+        .getMacaroon();
 };  
 
 function calculateMacaroonSecret(macaroonUserSecret){
