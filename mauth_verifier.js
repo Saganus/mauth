@@ -10,7 +10,7 @@ var routesCaveatRegex       = /routes=(.*)/;
 //var caveatKey           = "secret2";
 //var caveatId            = "random2-32"
 
-module.exports = function(options) {
+function getMacaroonsVerifier(options) {
     return function verifyMacaroons(req, res, next) {
         var publicScope         = options.publicScope;
         var satisfierFunctions  = options.satisfierFunctions;
@@ -31,7 +31,7 @@ module.exports = function(options) {
                         res.sendStatus("401");
                     }
                 }).catch(function (error) {
-                    console.log("Promise rejected:");
+                    //console.log("Promise rejected:");
                     console.log(error);
                     res.sendStatus("401");
                 });
@@ -41,7 +41,7 @@ module.exports = function(options) {
                 next();
             }
             else{
-                console.log("No macaroon secret found. Denying access to non-public scope");
+                //No macaroon secret found. Denying access to non-public scope"
                 res.sendStatus("401");
             }
         }
@@ -89,7 +89,7 @@ function validateRequest(publicScope, verifierPolicy, satisfierFunctions, serial
                 return resolve(true);
             }
             else{
-                console.log("Provided Macaroon is invalid");
+                //Provided Macaroon is invalid
                 console.log(macaroon.inspect());
                 return resolve(false);
             }
@@ -109,6 +109,46 @@ function addExactSatisfier(verifier, satisfierName, satisfierValue){
 function addGeneralSatisfier(verifier, satisfierFunction, caveatRegex){
     verifier.satisfyGeneral(satisfierFunction);
     return verifier
+};
+
+var routesCaveatVerifier = function(params){
+    return function RoutesCaveatVerifier(caveat) {
+        var routesCaveatRegex       = /routes=(.*)/;
+        var match = routesCaveatRegex.exec(caveat);
+        if (match !== null) {
+            var parsedRoutes = match[1].split(",");
+
+            var exactRoutes = parsedRoutes.filter(function(route) { 
+                return route.indexOf("*") == -1;
+            });
+
+            var prefixRoutes = parsedRoutes.filter(function(route) { 
+                return route.indexOf("*") > -1;
+            });
+
+            if(exactRoutes.indexOf(params.path) > -1){
+                return true;
+            }
+            else{
+                prefixRoutes.forEach(function(route){
+                    if(params.path.startsWith(route)){
+                        return true;
+                    }
+                });
+                console.log("No match found in exact or prefix routes");
+                return false;
+            }
+        }
+        else{
+            console.log("No match found");
+            return false;
+        }
+    };
+};
+
+module.exports = {
+    verifyMacaroons : getMacaroonsVerifier,
+    routesCaveatVerifier : routesCaveatVerifier
 };
 
 /*
